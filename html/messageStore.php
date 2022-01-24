@@ -17,13 +17,13 @@ if($_SERVER["REQUEST_METHOD"] == "GET"){
 } else if($_SERVER["REQUEST_METHOD"] == "POST"){
   $name = $_POST["name"];
   $message = $_POST["message"];
-  $createdAt = new DateTime('NOW');;
+  $createdAt = new DateTime('NOW');
   $s = $pdo->prepare("INSERT INTO chatlog (name, message, createdAt)"
-    . " VALUE (:name, :message, :createdAt)");
+    . " VALUE (:name, :message, FROM_UNIXTIME(:createdAt))");
   $s->execute(array(
     ":name" => $name, 
     ":message" => $message,
-    ":createdAt" => $createdAt->format("Y-m-d H:i:s")
+    ":createdAt" => $createdAt->getTimestamp()
   ));
   print(json_encode([
     "id" => $pdo->lastInsertId(),
