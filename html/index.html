@@ -99,7 +99,8 @@ class ChatLog{
         this.logs.push({id: id, name: name, message: message, createdAt: createdAt});
         const span = document.createElement("span");
         span.setAttribute("id", `chat${id}`);
-        span.append(`${name}: ${message}`);
+        var d = new Date(createdAt * 1000);
+        span.append(`[${d.getHours()}:${d.getMinutes()}] ${name}: ${message}`);
         const br = document.createElement("br");
         span.append(br);
         this.logDiv.append(span);
