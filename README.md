@@ -13,4 +13,4 @@ DBからチャットログを受け取った後に追加されたメッセージ
 1. Dockerをインストールしてください(Linuxで動かす場合，docker-composeもインストールしてください)。
 2. このリポジトリをcloneしてください。 `git clone https://github.com/kcg-edu-future-lab/madoi-sample-chat-js-withdb`
 3. cloneしたディレクトリ(`madoi-sample-chat-js-withdb`)で，`docker-compose up`を実行してください。
-
+4. http://localhost:8080/ にアクセスすると，チャットアプリケーションが開きます。
