@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf8">
 <style>
-#chatLog {
+#chatLogDiv {
     overflow: scroll;
     resize: vertical;
-    height: 200px;
+    height: 400px;
     border: solid 1px;
     padding: 4;
     border-radius: 4px;
@@ -15,53 +15,124 @@
 </head>
 <body>
 <form id="chatForm">
-    <div>
-        <input id="name" size="8" type="text" value="匿名">
-        <input id="message" size="20" type="text" placeholder="送信するメッセージ">
-        <button type="submit">送信</button>
-    </div>
+    <input data-id="name" size="8" type="text" value="匿名">
+    <input data-id="message" size="20" type="text" placeholder="送信するメッセージ">
+    <button type="submit">送信</button>
 </form>
-<div id="chatLog"></div>
-<script src="https://fungo.kcg.edu/madoi-20211127/js/madoi.js"></script>
+<div id="chatLogDiv">
+    <template data-id="logTemplate">
+        <div>
+            [<span data-id="time"></span>] <span data-id="name"></span>: <span data-id="message"></span><br/>
+        </div>
+    </template>
+</div>
+<script src="https://fungo.kcg.edu/madoi-20220920/js/madoi.js"></script>
 <script>
 window.addEventListener("load", async ()=>{
-    // ChatLogの保存と読み出しを行うクラス。
-    const store = new MessageStore("messageStore.php");
+    // Madoiライブラリを使ってサービスに接続する。引数はルーム識別文字列。
+    const m = new madoi.Madoi("dbchat-93lksdnn");
 
-    // ChatLogクラスのインスタンスを作成する。
-    const chatLog = new ChatLog("#chatLog");
-    // messageStoreからログの読み出しを行い，結果をchatLogクラスに渡す。
-    chatLog.setState(await store.loadMessages());
-
-    // Madoiライブラリを使ってサービスに接続する。引数の"room/"以降はセッション識別文字列。
-    const m = new madoi.Madoi("rooms/dbchat-neo3inalksdj");
+    // Chatクラスのインスタンスを作成する。
+    const chat = new Chat("chatForm", "chatLogDiv");
 
     // chatインスタンスと共有に関するメソッドを登録する。addMessageはプロキシ関数に置き換えられる。
     // getState/setStateは状態の取得/設定メソッドとして登録される。
-    m.register(chatLog, [
-        {method: chatLog.addMessage, share: {maxLog: 100}},
-        {method: chatLog.getState, getState: {}},
-        {method: chatLog.setState, setState: {}}
+    m.register(chat, [
+        {method: chat.addLog, share: {maxLog: 100}},
+        {method: chat.getState, getState: {}},
+        {method: chat.setState, setState: {}}
     ]);
 
-    // 送信ボタンが押されたら，メッセージのDBへの保存と他のブラウザへの通知を行う。
-    const nameInput = document.querySelector("#name");
-    const messageInput = document.querySelector("#message");
-    document.querySelector("#chatForm").addEventListener("submit", async e => {
-        e.preventDefault();
-        const name = nameInput.value.trim();
-        const message = messageInput.value.trim();
-        if(message.length == 0) return false;
+    // ChatLogの保存と読み出しを行うクラス。
+    const store = new MessageStore("messageStore.php");
 
+    // メッセージのIDと作成日時を決定する際に，messageStoreを呼び出す。
+    chat.getIdAndCreatedAt = (name, message)=>{
         // メッセージのDBへの保存。メッセージのIDと作成日時が返る。
-        const ret = await store.store(name, message);
-        // 他のブラウザに通知する。
-        chatLog.addMessage(ret.id, name, message, ret.createdAt);
+        return store.store(name, message);
+    };
 
-        messageInput.value = "";
-    });
+    // messageStoreからログの読み出しを行い，結果をchatクラスに渡す。
+    chat.setState(await store.loadMessages());
 });
 
+class Chat{
+    constructor(chatFormId, chatLogDivId){
+        this.logs = [];
+        // 送信ボタンが押されたら，メッセージのDBへの保存と他のブラウザへの通知を行う。
+        const chatForm = document.getElementById(chatFormId);
+        const nameInput = chatForm.querySelector("[data-id='name']");
+        const messageInput = chatForm.querySelector("[data-id='message']");
+        chatForm.addEventListener("submit", async event => {
+            event.preventDefault();
+            const name = nameInput.value.trim();
+            const message = messageInput.value.trim();
+            console.log("m: " + message);
+            if(message.length > 0){
+                const {id, createdAt} = await this.getIdAndCreatedAt(name, message);
+                // 他のブラウザに通知する。
+                this.addLog(id, name, message, createdAt);
+                messageInput.value = "";
+            }
+        });
+        this.chatLogDiv = document.getElementById(chatLogDivId);
+        this.logTemplate = this.chatLogDiv.querySelector("[data-id='logTemplate']");
+    }
+
+    async getIdAndCreatedAt(name, message){
+        return {id: 0, createdAt: (new Date()).getTIme() / 1000};
+    }
+
+    // チャットメッセージを追加するメソッド。このメソッドの呼び出しは他のブラウザでも行われる。
+    addLog(id, name, message, createdAt){
+        this.appendLog(id, name, message, createdAt);
+    }
+
+    // ログ領域にログを追加するメソッド
+    appendLog(id, name, message, createdAt){
+        this.logs.push({id: id, name: name, message: message, createdAt: createdAt});
+        // 100件以上は保持しないようにする。
+        while(this.logs.length > 100){
+            document.getElementById(`log${this.logs[0].id}`).remove();
+            this.logs.splice(0, 1);
+        }
+        const log = this.logTemplate.content.cloneNode(true);
+        log.firstElementChild.setAttribute("id", `log${id}`);
+        const d = new Date(createdAt * 1000);
+        log.querySelector("[data-id='time']").textContent = `${d.getHours()}:${d.getMinutes()}`;
+        log.querySelector("[data-id='name']").textContent = name;
+        log.querySelector("[data-id='message']").textContent = message;
+        this.chatLogDiv.append(log);
+        this.chatLogDiv.scrollTop = this.chatLogDiv.scrollHeight;
+    }
+
+    // 状態を取得するメソッド。
+    getState(){
+        return this.logs;
+    }
+
+    // 状態を設定するメソッド
+    setState(logs){
+        let i = 0;
+        if(this.logs.length > 0){
+            // 既にログを持っていれば，新しいものだけを追加する。
+            // logsの後ろから，既に持っているログが見つかるまで探す。
+            const lastLog = this.logs[this.logs.length - 1];
+            i = logs.length - 1;
+            for(; i >= 0; i--){
+                if(lastLog.id == logs[i].id) break;
+            }
+            // 持っているログの次を指すようiを+1
+            i++;
+        }
+        for(; i < logs.length; i++){
+            const l = logs[i];
+            this.appendLog(l.id, l.name, l.message, l.createdAt);
+        }
+    }
+}
+
+// チャットメッセージの保存/読み込みを行うクラス。storePathにPOSTリクエストを送る。
 class MessageStore{
     constructor(storePath){
         this.storePath = storePath;
@@ -72,6 +143,7 @@ class MessageStore{
     }
 
     async store(name, message){
+        console.log(`name: ${name}, message: ${message}`);
         const f = new FormData();
         f.append("name", name);
         f.append("message", message);
@@ -80,64 +152,6 @@ class MessageStore{
             body: f
         });
         return response.json();
-    }
-}
-
-class ChatLog{
-    constructor(logSelector){
-        this.logDiv = document.querySelector(logSelector);
-        this.logs = [];
-    }
-
-    // チャットメッセージを追加するメソッド。このメソッドの呼び出しは他のブラウザでも行われる。
-    addMessage(id, name, message, createdAt){
-        this.appendLog(id, name, message, createdAt);
-    }
-
-    // ログ領域にログを追加するメソッド
-    appendLog(id, name, message, createdAt){
-        this.logs.push({id: id, name: name, message: message, createdAt: createdAt});
-        const span = document.createElement("span");
-        span.setAttribute("id", `chat${id}`);
-        var d = new Date(createdAt * 1000);
-        span.append(`[${d.getHours()}:${d.getMinutes()}] ${name}: ${message}`);
-        const br = document.createElement("br");
-        span.append(br);
-        this.logDiv.append(span);
-        // 100件以上は保持しないようにする。
-        while(this.logs.length > 100){
-            document.querySelector(`#chat${this.logs[0].id}`).remove();
-            this.logs.splice(0, 1);
-        }
-        this.logDiv.scrollTop = this.logDiv.scrollHeight;
-    }
-
-    // 状態を取得するメソッド。
-    getState(){
-        return this.logs;
-    }
-
-    // 状態を設定するメソッド
-    setState(logs){
-        if(this.logs.length > 0){
-            // 既にログを持っていればマージする
-            const lastLog = this.logs[this.logs.length - 1];
-            let i = logs.length - 1;
-            // 自分が持っているログの最後のIDと同じIDのログまで遡る
-            for(; i >= 0; i--){
-                if(lastLog.id == logs[i].id) break;
-            }
-            // その次から最後のログまでを追加していく
-            i++;
-            for(; i < logs.length; i++){
-                const l = logs[i];
-                this.appendLog(l.id, l.name, l.message, l.createdAt);
-            }
-        } else{
-            for(let l of logs){ 
-                this.appendLog(l.id, l.name, l.message, l.createdAt);
-            }
-        }
     }
 }
 </script>

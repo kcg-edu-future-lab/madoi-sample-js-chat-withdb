@@ -32,7 +32,7 @@ CREATE TABLE `chatlog` (
   `name` varchar(255) CHARACTER SET utf8 NOT NULL,
   `message` text CHARACTER SET utf8 NOT NULL,
   `createdAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 --
 -- ダンプしたテーブルのインデックス
