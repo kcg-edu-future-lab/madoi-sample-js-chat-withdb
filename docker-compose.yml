@@ -7,7 +7,7 @@ services:
       - ./php.ini:/usr/local/etc/php/php.ini
       - ./html:/var/www/html
     ports:
-      - 8080:80
+      - 8081:80
 
   mysql:
     image: mysql:5.7
