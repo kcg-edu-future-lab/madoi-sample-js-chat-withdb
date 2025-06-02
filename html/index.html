@@ -29,14 +29,15 @@
 <script src="http://localhost:8080/madoi/js/madoi.js"></script>
 <script>
 window.addEventListener("load", async ()=>{
-    // Madoiライブラリを使ってサービスに接続する。引数はルーム識別文字列。
+    // Madoiに接続する。引数はルーム識別文字列と認証キーの文字列。
     const m = new madoi.Madoi("dbchat-93lksdnn", "ahfuTep6ooDi7Oa4");
 
     // Chatクラスのインスタンスを作成する。
     const chat = new Chat("chatForm", "chatLogDiv");
 
-    // chatインスタンスと共有に関するメソッドを登録する。addMessageはプロキシ関数に置き換えられる。
-    // getState/setStateは状態の取得/設定メソッドとして登録される。
+    // chatインスタンスと共有に関するメソッドを登録する。
+    // addLogはその実行を共有するためのプロキシ関数に置き換えられる。
+    // getState/setStateは状態の取得/設定メソッドとして登録され適切なタイミングで呼び出される。
     m.register(chat, [
         {method: chat.addLog, share: {maxLog: 100}},
         {method: chat.getState, getState: {}},
@@ -83,7 +84,7 @@ class Chat{
         return {id: 0, createdAt: (new Date()).getTIme() / 1000};
     }
 
-    // チャットメッセージを追加するメソッド。このメソッドの呼び出しは他のブラウザでも行われる。
+    // チャットメッセージを追加するメソッド。このメソッドの呼び出しは他のブラウザに共有される。
     addLog(id, name, message, createdAt){
         this.appendLog(id, name, message, createdAt);
     }
